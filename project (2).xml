@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>// Channels for synchronization
+chan goToWebsite, selectItem, confirmOrder, provideSecurityAnswer, 
+     processPayment, orderConfirmed, paymentSuccessful, paymentFailed, blockAccount;
+
+// Variables for tracking state
+bool isLoggedIn = false;
+bool isOrderPlaced = false;
+bool isPaymentProcessed = false;
+bool isAccountBlocked = false;
+
+// Variables for timeout and error handling
+clock timeoutClock;   // Global clock to track timeouts
+int securityAttempts = 0; // Counter for security attempts
+
+// Constants
+const int MAX_SECURITY_ATTEMPTS = 3;
+const int TIMEOUT_DURATION = 60; // Timeout duration in time units, adjust as needed
+</declaration>
+	<template>
+		<name x="5" y="5">UserInteraction</name>
+		<declaration>// Local declarations
+bool itemSelected = false;
+bool userDetailsConfirmed = false;</declaration>
+		<location id="id0" x="-289" y="-136">
+			<name x="-299" y="-170">Start</name>
+		</location>
+		<location id="id1" x="153" y="-136">
+			<name x="143" y="-170">ItemSelected</name>
+		</location>
+		<location id="id2" x="612" y="-136">
+			<name x="602" y="-170">OrderPlaced</name>
+		</location>
+		<init ref="id0"/>
+		<transition id="id3">
+			<source ref="id2"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="187" y="25">paymentFailed?</label>
+			<nail x="612" y="51"/>
+			<nail x="153" y="51"/>
+		</transition>
+		<transition id="id4">
+			<source ref="id1"/>
+			<target ref="id2"/>
+			<label kind="guard" x="221" y="-127">itemSelected &amp;&amp; userDetailsConfirmed</label>
+			<label kind="synchronisation" x="306" y="-161">confirmOrder!</label>
+		</transition>
+		<transition id="id5">
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="guard" x="-238" y="-127">isLoggedIn</label>
+			<label kind="synchronisation" x="-153" y="-102">goToWebsite!</label>
+			<label kind="assignment" x="-195" y="-85">itemSelected = true</label>
+		</transition>
+	</template>
+	<template>
+		<name>SecurityCheck</name>
+		<declaration>// Local declarations inside SecurityCheck
+clock securityCheckClock;
+bool answerCorrect = false;
+
+// Local declarations inside SecurityCheck
+clock secCheckClock;
+</declaration>
+		<location id="id6" x="-382" y="-85">
+			<name x="-392" y="-119">WaitForSecurityAnswer</name>
+		</location>
+		<location id="id7" x="-42" y="-85">
+			<name x="-52" y="-119">AnswerVerified</name>
+		</location>
+		<location id="id8" x="-204" y="127">
+			<name x="-214" y="93">AccountBlocked</name>
+		</location>
+		<location id="id9" x="-450" y="119">
+			<name x="-460" y="85">Timeout</name>
+		</location>
+		<init ref="id6"/>
+		<transition id="id10">
+			<source ref="id6"/>
+			<target ref="id9"/>
+			<label kind="guard" x="-561" y="25">secCheckClock &gt;= 30</label>
+		</transition>
+		<transition id="id11">
+			<source ref="id6"/>
+			<target ref="id8"/>
+			<label kind="guard" x="-364" y="-13">securityAttempts &gt;= MAX_SECURITY_ATTEMPTS</label>
+			<label kind="synchronisation" x="-364" y="4">blockAccount!</label>
+			<label kind="assignment" x="-364" y="21">isAccountBlocked = true</label>
+		</transition>
+		<transition id="id12">
+			<source ref="id6"/>
+			<target ref="id7"/>
+			<label kind="guard" x="-297" y="-76">answerCorrect</label>
+			<label kind="synchronisation" x="-364" y="-102">provideSecurityAnswer!</label>
+			<label kind="assignment" x="-340" y="-59">securityAttempts++</label>
+		</transition>
+	</template>
+	<template>
+		<name>PaymentProcessing</name>
+		<declaration>// Local declarations
+bool paymentDetailsValid = false;</declaration>
+		<location id="id13" x="-136" y="-51">
+			<name x="-146" y="-85">StartPayment</name>
+		</location>
+		<location id="id14" x="238" y="-51">
+			<name x="228" y="-85">PaymentProcessed</name>
+		</location>
+		<location id="id15" x="110" y="170">
+			<name x="100" y="136">PaymentFailed</name>
+		</location>
+		<location id="id16" x="323" y="170">
+			<name x="313" y="136">PaymentEnd</name>
+		</location>
+		<init ref="id13"/>
+		<transition id="id17">
+			<source ref="id15"/>
+			<target ref="id16"/>
+			<label kind="synchronisation" x="128" y="153">paymentFailed!</label>
+		</transition>
+		<transition id="id18">
+			<source ref="id13"/>
+			<target ref="id15"/>
+			<label kind="guard" x="-118" y="25">!paymentDetailsValid</label>
+			<label kind="synchronisation" x="-118" y="42">paymentFailed!</label>
+		</transition>
+		<transition id="id19">
+			<source ref="id13"/>
+			<target ref="id14"/>
+			<label kind="guard" x="-119" y="-42">paymentDetailsValid</label>
+			<label kind="synchronisation" x="-33" y="-68">processPayment!</label>
+			<label kind="assignment" x="-118" y="-51">isPaymentProcessed = true</label>
+		</transition>
+	</template>
+	<system>system UserInteraction, SecurityCheck, PaymentProcessing;
+</system>
+	<queries>
+		<query>
+			<formula>A[] not (UserInteraction.OrderPlaced and PaymentProcessing.PaymentFailed)</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-04-10 23:28:21 -0400">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not SecurityCheck.AccountBlocked</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-04-10 23:28:44 -0400">
+			</result>
+		</query>
+		<query>
+			<formula>A[] SecurityCheck.WaitForSecurityAnswer imply securityAttempts &lt;= MAX_SECURITY_ATTEMPTS</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-04-10 23:29:01 -0400">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; not SecurityCheck.AccountBlocked</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-04-10 23:29:24 -0400">
+			</result>
+		</query>
+		<query>
+			<formula>A[] (UserInteraction.ItemSelected imply not SecurityCheck.AccountBlocked)</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-04-10 23:29:49 -0400">
+			</result>
+		</query>
+		<query>
+			<formula>A[] UserInteraction.OrderPlaced imply !PaymentProcessing.PaymentFailed</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-04-10 23:30:13 -0400">
+			</result>
+		</query>
+		<query>
+			<formula>A[] UserInteraction.ItemSelected imply PaymentProcessing.PaymentProcessed
+</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-04-10 23:30:52 -0400">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; deadlock
+</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-04-11 00:37:50 -0400">
+			</result>
+		</query>
+	</queries>
+</nta>
